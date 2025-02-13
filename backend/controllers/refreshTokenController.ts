@@ -1,57 +1,80 @@
-import { Response, Request } from "express";
+import { Response, Request, NextFunction } from "express";
 import User from "../models/User";
-import jwt, { VerifyErrors,JwtPayload, JwtPayload } from "jsonwebtoken";
+import jwt, { VerifyErrors } from "jsonwebtoken";
 
-export const handleRefreshToken = async(req: Request, res: Response) => {
-    const cookies = req.cookies;
-    if(!cookies?.jwt) return res.sendStatus(401);
-    const refreshToken = cookies.jwt;
-    res.clearCookie('jwt', { httpOnly: true, sameSite: 'none', secure: true });
+interface CustomJwtPayload extends jwt.JwtPayload {
+  username: string;
+}
 
-    const foundUser = await User.findOne({ refreshToken }).exec();
+export const handleRefreshToken = async (req: Request, res: Response, next: NextFunction) => {
+  const cookies = req.cookies;
+  if (!cookies?.jwt) return res.sendStatus(401);
+  const refreshToken = cookies.jwt;
+  res.clearCookie("jwt", { httpOnly: true, sameSite: "none", secure: true });
 
-    //Detected refreshToken reuse!
-    if(!foundUser){
-        jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET!, async (err: VerifyErrors, decoded: JwtPayload) => {
-            if(err) return res.sendStatus(403); //Forbidden
-            //Delete refresh token of hacked user
-            const hackedUser = await User.findOne({ username: decoded!.username }).exec();
-            if (hackedUser) {
-                hackedUser.refreshToken = [];
-                const result = await hackedUser.save();
-            }
-        })
-        return res.sendStatus(403); //Forbidden
-    }
+  const foundUser = await User.findOne({ refreshToken }).exec();
 
-    const newRefreshTokenArray = foundUser.refreshToken.filter(rt => rt != refreshToken)
-
-    //evaluate jwt
-    jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET!, async (err: VerifyErrors | null, decoded: JwtPayload | undefined) => {
-        if(err) {
-            //expired refreshtoken
-            foundUser.refreshToken = [...newRefreshTokenArray];
-            const result = await foundUser.save();
+  //Detected refreshToken reuse!
+  if (!foundUser) {
+    jwt.verify(
+      refreshToken,
+      process.env.REFRESH_TOKEN_SECRET!,
+      async (err: VerifyErrors | null, decoded: any) => {
+        if (err) return res.sendStatus(403); //Forbidden
+        //Delete refresh token of hacked user
+        const hackedUser = await User.findOne({
+          username: decoded.username,
+        }).exec();
+        if (hackedUser) {
+          hackedUser.refreshToken = [];
+          const result = await hackedUser.save();
         }
-        if(!err || foundUser.username !== decoded.username) return res.sendStatus(403);
+      }
+    );
+    return res.sendStatus(403); //Forbidden
+  }
+
+  const newRefreshTokenArray = foundUser.refreshToken.filter(
+    (rt) => rt != refreshToken
+  );
+
+  //evaluate jwt
+  jwt.verify(
+    refreshToken,
+    process.env.REFRESH_TOKEN_SECRET!,
+    async (
+      err: VerifyErrors | null,
+      decoded: jwt.JwtPayload | string | undefined
+    ) => {
+      if (err) {
+        //expired refreshtoken
+        foundUser.refreshToken = [...newRefreshTokenArray];
+        const result = await foundUser.save();
+        return res.sendStatus(403);
+      }
+      if (typeof decoded === "object" && decoded && "username" in decoded) {
+        const decodedPayload: CustomJwtPayload = decoded as CustomJwtPayload;
+
+        if (foundUser.username !== decodedPayload.username)
+          return res.sendStatus(403);
 
         //refreshToken was still valid
-        const roles  = Object.values(foundUser.roles || {});
-        const accessToken  = jwt.sign(
-            {
-                "UserInfo": {
-                    "username": decoded.username,
-                    "roles": roles
-                }
+        const roles = Object.values(foundUser.roles || {});
+        const accessToken = jwt.sign(
+          {
+            UserInfo: {
+              username: decodedPayload.username,
+              roles: roles,
             },
-            process.env.ACCESS_TOKEN_SECRET!,
-            { expiresIn: '10s'}
+          },
+          process.env.ACCESS_TOKEN_SECRET!,
+          { expiresIn: "10s" }
         );
 
         const newRefreshToken = jwt.sign(
-            { "username": foundUser.username },
-            process.env.REFRESH_TOKEN_SECRET!,
-            { expiresIn: '15s'}
+          { username: foundUser.username },
+          process.env.REFRESH_TOKEN_SECRET!,
+          { expiresIn: "15s" }
         );
 
         //saving refreshToken with current user
@@ -59,13 +82,17 @@ export const handleRefreshToken = async(req: Request, res: Response) => {
         const result = await foundUser.save();
 
         //creates secure cookie with refresh token
-        res.cookie('jwt', newRefreshToken, {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'none',
-            maxAge: 24 * 60 * 60 * 1000
+        res.cookie("jwt", newRefreshToken, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "none",
+          maxAge: 24 * 60 * 60 * 1000,
         });
 
-        res.json({ accessToken })
-    });
-}
+        res.json({ accessToken });
+      } else {
+        res.sendStatus(403); //Forbidden
+      }
+    }
+  );
+};

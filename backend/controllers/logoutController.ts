@@ -1,7 +1,7 @@
-import { Response, Request } from "express";
+import { Response, Request, NextFunction } from "express";
 import User from "../models/User";
 
-export const handleLogOut = async(req: Request, res: Response) => {
+export const handleLogOut = async(req: Request, res: Response, next: NextFunction) => {
     //on client, also delete the accesstoken
 
     const cookies = req.cookies;
