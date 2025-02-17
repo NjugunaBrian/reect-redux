@@ -2,7 +2,6 @@ import { NextFunction, Request, Response } from "express";
 import { format } from "date-fns";
 import path from "path";
 import { v4 as uuid } from 'uuid';
-import fs from 'fs';
 import { promises as fsPromises } from 'fs';
 
 
@@ -12,13 +11,17 @@ const logEvents = async (message: string, logName: string) => {
     const dateTime = `${format(new Date(), 'yyyyMMdd\tHH:mm:ss')}`;
     const logItem =  `${dateTime}\t${uuid()}\t${message}\n`;
 
+    const logDir = path.join(__dirname, '..', 'logs');
+    const logFilePath = path.join(logDir, logName);
+
     try{
-        if (!fs.existsSync(path.join(__dirname, '..', 'logs'))){
-            await fsPromises.mkdir(path.join(__dirname, '..', 'logs', logName), logItem)
-        }
+        
+        await fsPromises.mkdir(logDir, { recursive: true });
+
+        await fsPromises.appendFile(logFilePath, logItem);
 
     } catch (error: any){
-        console.log(error)
+        console.log('Error writing log', error)
     }
 
 }

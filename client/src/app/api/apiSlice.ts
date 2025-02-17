@@ -5,7 +5,7 @@ import { RootState } from "../store";
 
 const baseQuery = fetchBaseQuery({
     //Where the backend REST API runs
-    baseUrl: "http://localhost:3500", //change this when you go into production
+    baseUrl: "http://localhost:4000", //change this when you go into production
     credentials: 'include', //so we'll send back our http only secure cookie. Cookie sends with every query
     prepareHeaders: (headers, { getState }) => {
         const state = getState() as RootState

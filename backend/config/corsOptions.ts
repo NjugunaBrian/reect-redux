@@ -6,6 +6,7 @@ interface CorsCallback {
 
 interface CorsOptions {
     origin: (origin: string | undefined, callback: CorsCallback) => void;
+    credentials: boolean;
     optionSuccessStatus: number;
 }
 
@@ -17,7 +18,8 @@ const corsOptions: CorsOptions = {
             callback(new Error('Not allowed by CORS'))
         }
     },
-    optionSuccessStatus: 200
+    credentials: true,
+    optionSuccessStatus: 200,
 }
 
 export default corsOptions
