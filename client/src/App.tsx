@@ -4,6 +4,7 @@ import Public from "./components/Public"
 import Login from "./features/auth/Login"
 import RequireAuth from "./components/RequireAuth"
 import Welcome from "./features/auth/Welcome"
+import UsersList from "./features/users/UsersList"
 
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
           {/* protected routes */}
           <Route element={<RequireAuth />}>
             <Route path="/welcome" element={<Welcome />} />
+            <Route path="/userlist" element={<UsersList />} />
           </Route>
 
 

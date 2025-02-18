@@ -94,6 +94,10 @@ a:hover, a:focus {
   list-style-type: none;
 }
 
+.welcome p {
+  text-decoration: underlined;
+}
+
 
 
 
